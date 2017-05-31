@@ -356,7 +356,8 @@ def generatedSpeciesConstraints(**kwargs):
         'maximumHeavyAtoms',
         'maximumRadicalElectrons',
         'allowSingletO2',
-        'maximumIsotopicAtoms'
+        'maximumIsotopicAtoms',
+        'useOriginalReactions',
     ]
 
     for key, value in kwargs.items():
