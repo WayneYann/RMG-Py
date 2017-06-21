@@ -196,6 +196,8 @@ class KineticsGroups(Database):
             kinetics.kdata.value_si *= degeneracy
         elif isinstance(kinetics, Arrhenius):
             kinetics.A.value_si *= degeneracy
+        elif isinstance(kinetics, ArrheniusEP):
+            kinetics.A.value_si *= degeneracy
         elif kinetics is not None:
             raise KineticsError('Unexpected kinetics type "{0}" encountered while generating kinetics from group values.'.format(kinetics.__class__))
         kinetics.comment += "Multiplied by reaction path degeneracy {0}".format(degeneracy)
@@ -218,14 +220,41 @@ class KineticsGroups(Database):
             )
         elif isinstance(kinetics1, Arrhenius) and isinstance(kinetics2, Arrhenius):
             assert kinetics1.A.units == kinetics2.A.units
-            assert kinetics1.Ea.units == kinetics2.Ea.units
             assert kinetics1.T0.units == kinetics2.T0.units
             assert kinetics1.T0.value == kinetics2.T0.value
             kinetics = Arrhenius(
                 A = (kinetics1.A.value * kinetics2.A.value, kinetics1.A.units),
                 n = (kinetics1.n.value + kinetics2.n.value, kinetics1.n.units),
-                Ea = (kinetics1.Ea.value + kinetics2.Ea.value, kinetics1.Ea.units),
+                Ea = (kinetics1.Ea.value_si + kinetics2.Ea.value_si, 'J/mol'),
                 T0 = (kinetics1.T0.value, kinetics1.T0.units),
+            )
+        elif isinstance(kinetics1,ArrheniusEP) and isinstance(kinetics2,ArrheniusEP):
+            assert kinetics1.A.units == kinetics2.A.units
+            kinetics = ArrheniusEP(
+                A = (kinetics1.A.value * kinetics2.A.value, kinetics1.A.units),
+                n = (kinetics1.n.value + kinetics2.n.value, kinetics1.n.units),
+                alpha = kinetics1.alpha+kinetics2.alpha,
+                E0 = (kinetics1.E0.value_si + kinetics2.E0.value_si, 'J/mol'),
+            )
+        elif isinstance(kinetics1,Arrhenius) and isinstance(kinetics2,ArrheniusEP):
+            assert kinetics1.A.units == kinetics2.A.units
+            assert kinetics1.T0.units == 'K'
+            assert kinetics1.T0.value == 1.0
+            kinetics = ArrheniusEP(
+                A = (kinetics1.A.value * kinetics2.A.value, kinetics1.A.units),
+                n = (kinetics1.n.value + kinetics2.n.value, kinetics1.n.units),
+                alpha = kinetics2.alpha,
+                E0 = (kinetics1.Ea.value_si + kinetics2.E0.value_si, 'J/mol'),
+            )
+        elif isinstance(kinetics1,ArrheniusEP) and isinstance(kinetics2,Arrhenius):
+            assert kinetics1.A.units == kinetics2.A.units
+            assert 'K' == kinetics2.T0.units
+            assert 1.0 == kinetics2.T0.value
+            kinetics = ArrheniusEP(
+                A = (kinetics1.A.value * kinetics2.A.value, kinetics1.A.units),
+                n = (kinetics1.n.value + kinetics2.n.value, kinetics1.n.units),
+                alpha = kinetics1.alpha,
+                E0 = (kinetics1.E0.value_si + kinetics2.Ea.value_si, 'J/mol'),
             )
         else:
             raise KineticsError('Unable to multiply kinetics types "{0}" and "{1}".'.format(kinetics1.__class__, kinetics2.__class__))
