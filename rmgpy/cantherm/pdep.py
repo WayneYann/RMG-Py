@@ -390,6 +390,7 @@ class PressureDependenceJob(object):
         
         logging.info('Saving pressure dependence results for {0} network...'.format(self.network.label))
         f = open(outputFile, 'a')
+        f_chemkin = open(os.path.join(os.path.dirname(outputFile), 'chem.inp'), 'a')
     
         Nreac = self.network.Nisom + self.network.Nreac
         Nprod = Nreac + self.network.Nprod
@@ -399,17 +400,31 @@ class PressureDependenceJob(object):
         Pcount = Plist.shape[0]
         
         count = 0
+        printed_reactions = [] # list of rxns already printed
         for prod in range(Nprod):
             for reac in range(Nreac):
                 if reac == prod: continue
                 reaction = self.network.netReactions[count]
                 count += 1
-                
+                # make sure we aren't double counting any reactions
+                if not any([reaction.isIsomorphic(other_rxn) for other_rxn in printed_reactions]):
+                    duplicate = False
+                    # add reaction to printed reaction
+                    printed_reactions.append(reaction)
+                else:
+                    # comment out the extra reverse reaction
+                    duplicate = True
+
+                # write chemkin output.
+                string = writeKineticsEntry(reaction, speciesList=None, verbose=False, commented = duplicate)
+                f_chemkin.write('{0}\n'.format(string))
+
+                # write to 'output.py'
                 kdata = self.K[:,:,prod,reac].copy()
                 order = len(reaction.reactants)
                 kdata *= 1e6 ** (order-1)
                 kunits = {1: 's^-1', 2: 'cm^3/(mol*s)', 3: 'cm^6/(mol^2*s)'}[order]
-                
+
                 f.write('#   =========== ')
                 f.write('=========== ' * Pcount)
                 f.write('\n')
@@ -419,38 +434,30 @@ class PressureDependenceJob(object):
                 f.write('#   =========== ')
                 f.write('=========== ' * Pcount)
                 f.write('\n')
-                
+
                 for t in range(Tcount):
                     f.write('#   {0:11g}'.format(Tlist[t]))
                     for p in range(Pcount):
                         f.write(' {0:11.3e}'.format(kdata[t,p]))
                     f.write('\n')
-                
+
                 f.write('#   =========== ')
                 f.write('=========== ' * Pcount)
                 f.write('\n')
-                
+
                 string = 'pdepreaction(reactants={0!r}, products={1!r}, kinetics={2!r})'.format(
                     [reactant.label for reactant in reaction.reactants],
                     [product.label for product in reaction.products],
                     reaction.kinetics,
                 )
-                f.write('{0}\n\n'.format(prettify(string)))
-        
+                pdep_function = '{0}\n\n'.format(prettify(string))
+                if duplicate:
+                    # add comments to the start of the string
+                    pdep_function = '#   ' + pdep_function.replace('\n','\n#   ')
+                f.write(pdep_function)
+
         f.close()
-        
-        f = open(os.path.join(os.path.dirname(outputFile), 'chem.inp'), 'a')
-        
-        count = 0
-        for prod in range(Nprod):
-            for reac in range(Nreac):
-                if reac == prod: continue
-                reaction = self.network.netReactions[count]
-                count += 1
-                string = writeKineticsEntry(reaction, speciesList=None, verbose=False)
-                f.write('{0}\n'.format(string))
-            
-        f.close()
+        f_chemkin.close()
 
     def plot(self, outputDirectory):
 
