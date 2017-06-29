@@ -1471,7 +1471,7 @@ def writeReactionString(reaction, javaLibrary = False):
     
 ################################################################################
 
-def writeKineticsEntry(reaction, speciesList, verbose = True, javaLibrary = False):
+def writeKineticsEntry(reaction, speciesList, verbose = True, javaLibrary = False, commented=False):
     """
     Return a string representation of the reaction as used in a Chemkin
     file. Use verbose = True to turn on comments.  Use javaLibrary = True in order to 
@@ -1500,8 +1500,12 @@ def writeKineticsEntry(reaction, speciesList, verbose = True, javaLibrary = Fals
                          products=reaction.products,
                          reversible=reaction.reversible,
                          kinetics=kinetics)
-            string += writeKineticsEntry(new_reaction, speciesList, verbose, javaLibrary)
+            string += writeKineticsEntry(new_reaction, speciesList, verbose, javaLibrary, commented)
             string += "DUPLICATE\n"
+
+        if commented:
+            # add comments to the start of each line
+            string = '! ' + string.replace('\n','\n! ')
         return string + "\n"
     
     # Add to global chemkin reaction count if the kinetics is not a duplicate
@@ -1658,6 +1662,9 @@ def writeKineticsEntry(reaction, speciesList, verbose = True, javaLibrary = Fals
     if reaction.duplicate:
         string += 'DUPLICATE\n'
 
+    if commented:
+        # add comments to the start of each line
+        string = '! ' + string.replace('\n','\n! ')
     return string
 
 ################################################################################
